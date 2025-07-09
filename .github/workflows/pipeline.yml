@@ -35,3 +35,14 @@ jobs:
 
       - name: Run:Generate Report
         run: python scripts/summarize_report.py
+
+      - name: Commit & Push Report
+        run: |
+          git config user.name "UnnatiBot"
+          git config user.email "unnati@example.com"
+          mkdir -p reports
+          cp report.md reports/report-$(date +%Y-%m-%d).md
+          git add reports/
+          git commit -m "Add daily threat report"
+          git push
+
