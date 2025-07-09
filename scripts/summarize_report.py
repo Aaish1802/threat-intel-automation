@@ -1,78 +1,71 @@
+# scripts/summarize_report.py
+
 import sqlite3
 from datetime import datetime
-import os
 import smtplib
+import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-# Step 1: Generate Markdown Report
+DB_FILE = "threat_intel.db"
+REPORT_FILE = "report.md"
+
 def generate_report():
-    conn = sqlite3.connect('threat_intel.db')
+    conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
-    report_lines = []
-    report_lines.append(f"# 🛡️ Daily Threat Intelligence Report – {datetime.now().strftime('%Y-%m-%d')}\n")
+    report_lines = ["# 🛡️ Daily Threat Intelligence Summary\n"]
+    report_lines.append(f"_Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}_\n")
 
-    # Summary of threats
+    # Threat Type Summary
     cursor.execute("SELECT threat_type, COUNT(*) FROM classified_threats GROUP BY threat_type")
     threats = cursor.fetchall()
-    report_lines.append("## 📊 Threat Summary\n")
-    for threat_type, count in threats:
-        report_lines.append(f"- **{threat_type}**: {count} threats")
+    report_lines.append("## 🔥 Threat Types Summary")
+    for ttype, count in threats:
+        report_lines.append(f"- **{ttype}**: {count} instances")
 
-    # Top CVEs
-    cursor.execute("SELECT cve FROM classified_threats WHERE cve IS NOT NULL LIMIT 5")
-    cves = [row[0] for row in cursor.fetchall()]
-    if cves:
-        report_lines.append("\n## 🚨 Top CVEs")
-        for cve in cves:
-            report_lines.append(f"- {cve}")
+    # CVE Summary
+    cursor.execute("SELECT cve, COUNT(*) FROM classified_threats WHERE cve IS NOT NULL GROUP BY cve")
+    cves = cursor.fetchall()
+    report_lines.append("\n## 🧩 Top CVEs")
+    for cve, count in cves:
+        report_lines.append(f"- `{cve}`: {count} detections")
 
-    # MITRE Techniques
-    cursor.execute("SELECT mitre_technique FROM classified_threats WHERE mitre_technique IS NOT NULL LIMIT 5")
-    mitres = [row[0] for row in cursor.fetchall()]
-    if mitres:
-        report_lines.append("\n## 🧠 MITRE ATT&CK Techniques")
-        for m in mitres:
-            report_lines.append(f"- {m}")
+    # MITRE Summary
+    cursor.execute("SELECT mitre_id, COUNT(*) FROM classified_threats WHERE mitre_id IS NOT NULL GROUP BY mitre_id")
+    mitres = cursor.fetchall()
+    report_lines.append("\n## 🎯 Top MITRE Techniques")
+    for mitre, count in mitres:
+        report_lines.append(f"- `{mitre}`: {count} indicators")
 
-    conn.close()
-
-    # Save to report.md
-    with open("report.md", "w") as f:
+    with open(REPORT_FILE, "w") as f:
         f.write("\n".join(report_lines))
 
     print("✅ Report generated as report.md")
 
-# Step 2: Email Report
 def send_email():
-    sender_email = os.environ['EMAIL_USER']
-    sender_password = os.environ['EMAIL_PASS']
-    receiver_email = "c0939066@mylambton.ca"  # prof’s or personal email
+    sender_email = os.environ["EMAIL_USER"]
+    password = os.environ["EMAIL_PASS"]
+    recipient_email = os.environ["EMAIL_TO"]
+
+    subject = "📩 Daily Threat Intelligence Report"
+    with open(REPORT_FILE, "r") as f:
+        body = f.read()
 
     msg = MIMEMultipart()
-    msg['From'] = sender_email
-    msg['To'] = receiver_email
-    msg['Subject'] = "📄 Daily Threat Intelligence Report"
+    msg["From"] = sender_email
+    msg["To"] = recipient_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
 
-    body = "Hi Team,\n\nPlease find attached today's generated threat intelligence report.\n\nBest,\nUnnatiBot"
-    msg.attach(MIMEText(body, 'plain'))
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.starttls()
+    server.login(sender_email, password)
+    server.send_message(msg)
+    server.quit()
 
-    # Attach report
-    with open("report.md", "r") as f:
-        report_content = f.read()
-    msg.attach(MIMEText(report_content, 'plain'))
+    print("✅ Email sent to", recipient_email)
 
-    try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
-        server.quit()
-        print("✅ Email sent successfully.")
-    except Exception as e:
-        print("❌ Failed to send email:", str(e))
-
-# Run both parts
+# MAIN
 generate_report()
 send_email()
