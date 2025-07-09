@@ -1,47 +1,33 @@
 import sqlite3
-import pandas as pd
-from datetime import datetime
 
-# Connect to your threat intelligence SQLite database
+# Connect to the SQLite DB
 conn = sqlite3.connect("threat_intel.db")
+cursor = conn.cursor()
 
-# Read classified threat data
-df = pd.read_sql_query("SELECT * FROM classified_threats", conn)
+# Check if data exists
+cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='classified_threats'")
+if not cursor.fetchone():
+    print("⚠️ No classified_threats table found. Skipping report.")
+    exit(0)
 
-# Summarize threat types
-summary = df['threat_type'].value_counts().reset_index()
-summary.columns = ['Threat Type', 'Count']
+# Fetch data
+cursor.execute("SELECT * FROM classified_threats")
+rows = cursor.fetchall()
 
-# Top 5 MITRE Techniques
-if 'mitre_ttp' in df.columns:
-    top_ttps = df['mitre_ttp'].value_counts().head(5).reset_index()
-    top_ttps.columns = ['MITRE TTP', 'Count']
-else:
-    top_ttps = pd.DataFrame(columns=['MITRE TTP', 'Count'])
+if not rows:
+    print("⚠️ No data in classified_threats table. Skipping report.")
+    exit(0)
 
-# Extract CVE mentions
-cve_entries = df[df['title'].str.contains("CVE", case=False, na=False)]
-
-# Create Markdown report
-today = datetime.now().strftime("%Y-%m-%d")
-
-report_md = f"# 🛡️ Threat Intelligence Report ({today})\n\n"
-
-report_md += "## 🔍 Summary by Threat Type\n"
-report_md += summary.to_markdown(index=False)
-report_md += "\n\n"
-
-report_md += "## 🎯 Top 5 MITRE Techniques\n"
-report_md += top_ttps.to_markdown(index=False)
-report_md += "\n\n"
-
-report_md += f"## 📌 Notable CVEs Mentioned ({len(cve_entries)})\n"
-for _, row in cve_entries.iterrows():
-    report_md += f"- **{row['title']}**\n"
-
-# Save as report.md
+# Create markdown report
 with open("report.md", "w") as f:
-    f.write(report_md)
+    f.write("# 🛡️ Daily Threat Intelligence Report\n\n")
+    f.write(f"Total Threats Classified: **{len(rows)}**\n\n")
+
+    f.write("| Type | IOC | Severity |\n")
+    f.write("|------|-----|----------|\n")
+    for row in rows:
+        f.write(f"| {row[1]} | `{row[2]}` | {row[3]} |\n")
+
+print("✅ Report generated: report.md")
 
 conn.close()
-print("✅ Threat report generated successfully: report.md")
