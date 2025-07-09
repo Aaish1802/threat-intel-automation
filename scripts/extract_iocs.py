@@ -1,40 +1,44 @@
 # scripts/extract_iocs.py
 
-import re
-import pandas as pd
 import sqlite3
-import logging
+from datetime import datetime
 
-logging.basicConfig(filename='pipeline.log', level=logging.INFO)
+# Sample extracted IOC data (you can replace this with real parsed feed data)
+extracted_data = [
+    {"ioc_type": "ip", "ioc_value": "192.168.1.1", "description": "Suspicious IP", "cve": "CVE-2024-12345"},
+    {"ioc_type": "domain", "ioc_value": "malicious.example.com", "description": "Malicious domain", "cve": "CVE-2024-11111"},
+    {"ioc_type": "hash", "ioc_value": "abc123def456ghi789", "description": "Malware hash", "cve": "CVE-2024-22222"}
+]
 
-def extract():
-    logging.info("Extracting IOCs...")
-    conn = sqlite3.connect("threat_feeds.db")
+# Connect to database
+conn = sqlite3.connect("threat_intel.db")
+cursor = conn.cursor()
 
-    df = pd.read_sql_query("SELECT * FROM threat_data", conn)
+# Create table if it doesn't exist
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS extracted_iocs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ioc_type TEXT,
+        ioc_value TEXT,
+        description TEXT,
+        cve TEXT,
+        extracted_at TEXT
+    )
+''')
 
-    indicators = []
-    for _, row in df.iterrows():
-        text = row['summary']
-        ips = re.findall(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', text)
-        domains = re.findall(r'\b[\w\.-]+\.(com|net|org|gov|edu)\b', text)
-        hashes = re.findall(r'\b[a-fA-F0-9]{32,64}\b', text)
+# Insert each IOC
+for entry in extracted_data:
+    cursor.execute('''
+        INSERT INTO extracted_iocs (ioc_type, ioc_value, description, cve, extracted_at)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (
+        entry["ioc_type"],
+        entry["ioc_value"],
+        entry["description"],
+        entry["cve"],
+        datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    ))
 
-        for ioc in ips + domains + hashes:
-            indicators.append((ioc, 'IP' if '.' in ioc else 'HASH'))
-
-    cursor = conn.cursor()
-    cursor.execute("""CREATE TABLE IF NOT EXISTS ioc_data (
-                        ioc TEXT,
-                        type TEXT
-                    )""")
-
-    for ioc, typ in indicators:
-        cursor.execute("INSERT INTO ioc_data (ioc, type) VALUES (?, ?)", (ioc, typ))
-
-    conn.commit()
-    conn.close()
-    logging.info("IOC extraction completed.")
-
-if __name__ == "__main__":
-    extract()
+conn.commit()
+conn.close()
+print("[+] IOC Extraction Complete")
