@@ -38,13 +38,13 @@ jobs:
 
     - name: Commit & Push Report
       run: |
-          if [ -f report.md ]; then
-            mkdir -p reports
-            cp report.md reports/report_$(date +'%Y-%m-%d').md
-            git config user.name "UnnatiBot"
-            git config user.email "unnati@example.com"
-            git add reports/
-            git commit -m "Add daily threat report - $(date +'%Y-%m-%d')" || echo "No changes to commit"
-            git push
-          else
+        if [ -f report.md ]; then
+          mkdir -p reports
+          cp report.md reports/report_$(date +'%Y-%m-%d').md
+          git config user.name "Report"
+          git config user.email "c0939066@mylambton.ca"
+          git add reports/
+          git commit -m "Add daily threat report - $(date +'%Y-%m-%d')" || echo "No changes to commit"
+          git push
+        else
             echo "⚠️ report.md not found, skipping commit & push."
