@@ -1,9 +1,11 @@
+# .github/workflows/pipeline.yml
+
 name: Threat Intel Automation
 
 on:
   schedule:
-    - cron: '0 2 * * *'     # Every day at 2:00 AM UTC
-  workflow_dispatch:         # Allow manual trigger
+    - cron: '0 2 * * *'  # Runs daily at 2:00 AM UTC
+  workflow_dispatch:     # Allows manual trigger
 
 jobs:
   run-threat-pipeline:
@@ -21,27 +23,24 @@ jobs:
       - name: Install Dependencies
         run: pip install -r requirements.txt
 
-      - name: Ingest Feeds
+      - name: Run:Ingest Feeds
         run: python scripts/ingest_feeds.py
 
-      - name: Extract IOCs
+      - name: Run:Extract IOCs
         run: python scripts/extract_iocs.py
 
-      - name: Classify Threats
+      - name: Run:Classify Threats
         run: python scripts/classify_threats.py
 
-      - name: Generate Report
+      - name: Run:Generate Report
         run: python scripts/summarize_report.py
-        env:
-          EMAIL_USER: ${{ secrets.EMAIL_USER }}
-          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
 
       - name: Commit & Push Report
         run: |
           if [ -f report.md ]; then
             mkdir -p reports
             cp report.md reports/report_$(date +'%Y-%m-%d').md
-            git config user.name "Report"
+            git config user.name "Report_Bot"
             git config user.email "c0939066@mylambton.ca"
             git add reports/
             git commit -m "Add daily threat report - $(date +'%Y-%m-%d')" || echo "No changes to commit"
