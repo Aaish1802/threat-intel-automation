@@ -2,56 +2,49 @@ name: Threat Intel Automation
 
 on:
   schedule:
-    - cron: "0 2 * * *"   # Runs daily at 2:00 AM UTC
-  workflow_dispatch:       # Allows manual trigger from GitHub UI
+    - cron: '0 2 * * *'     # Every day at 2:00 AM UTC
+  workflow_dispatch:         # Allow manual trigger
 
 jobs:
   run-threat-pipeline:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-    - name: Install Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libffi-dev
-        pip install -r requirements.txt
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
 
-    - name: Run:Ingest Feeds
-      run: python scripts/ingest_feeds.py
+      - name: Ingest Feeds
+        run: python scripts/ingest_feeds.py
 
-    - name: Run:Extract IOCs
-      run: python scripts/extract_iocs.py
+      - name: Extract IOCs
+        run: python scripts/extract_iocs.py
 
-    - name: Run:Classify Threats
-      run: python scripts/classify_threats.py
+      - name: Classify Threats
+        run: python scripts/classify_threats.py
 
-    - name: Run:Generate Report
-      run: python scripts/summarize_report.py
+      - name: Generate Report
+        run: python scripts/summarize_report.py
+        env:
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
 
-    - name: Generate Report
-      run: python scripts/summarize_report.py
-      env:
-         EMAIL_USER: ${{ secrets.EMAIL_USER }}
-         EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
-
-    - name: Commit & Push Report
-      run: |
-        if [ -f report.md ]; then
-          mkdir -p reports
-          cp report.md reports/report_$(date +'%Y-%m-%d').md
-          git config user.name "Report"
-          git config user.email "c0939066@mylambton.ca"
-          git add reports/
-          git commit -m "Add daily threat report - $(date +'%Y-%m-%d')" || echo "No changes to commit"
-          git push
-        else
+      - name: Commit & Push Report
+        run: |
+          if [ -f report.md ]; then
+            mkdir -p reports
+            cp report.md reports/report_$(date +'%Y-%m-%d').md
+            git config user.name "Report"
+            git config user.email "c0939066@mylambton.ca"
+            git add reports/
+            git commit -m "Add daily threat report - $(date +'%Y-%m-%d')" || echo "No changes to commit"
+            git push
+          else
             echo "⚠️ report.md not found, skipping commit & push."
-        fi
