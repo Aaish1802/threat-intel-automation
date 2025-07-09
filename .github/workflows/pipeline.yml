@@ -24,14 +24,14 @@ jobs:
           sudo apt-get install -y libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libffi-dev
           pip install -r requirements.txt
 
-      - name: Run: Ingest Feeds
+      - name: Run:Ingest Feeds
         run: python scripts/ingest_feeds.py
 
-      - name: Run: Extract IOCs
+      - name: Run:Extract IOCs
         run: python scripts/extract_iocs.py
 
-      - name: Run: Classify Threats
+      - name: Run:Classify Threats
         run: python scripts/classify_threats.py
 
-      - name: Run: Generate Report
+      - name: Run:Generate Report
         run: python scripts/summarize_report.py
