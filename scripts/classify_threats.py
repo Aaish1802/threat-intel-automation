@@ -12,7 +12,7 @@ cursor.execute('''
         threat_type TEXT,
         description TEXT,
         cve TEXT,
-        mitre_technique TEXT
+        mitre_id TEXT
     )
 ''')
 
@@ -54,9 +54,9 @@ for row in rows:
     mitre = map_to_mitre(threat_type)
 
     cursor.execute('''
-        INSERT INTO classified_threats (threat_type, description, cve, mitre_technique)
+        INSERT INTO classified_threats (threat_type, description, cve, mitre_id)
         VALUES (?, ?, ?, ?)
-    ''', (threat_type, description, cve, mitre))
+    ''', (threat_type, description, cve, mitre_id))
 
 # === Finalize ===
 conn.commit()
