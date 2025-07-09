@@ -36,6 +36,12 @@ jobs:
     - name: Run:Generate Report
       run: python scripts/summarize_report.py
 
+    - name: Generate Report
+      run: python scripts/summarize_report.py
+      env:
+         EMAIL_USER: ${{ secrets.EMAIL_USER }}
+         EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+
     - name: Commit & Push Report
       run: |
         if [ -f report.md ]; then
