@@ -2,47 +2,46 @@ name: Threat Intel Automation
 
 on:
   schedule:
-    - cron: '0 2 * * *'    # Every day at 2:00 AM UTC
-  workflow_dispatch:        # Allows manual run
+    - cron: '0 2 * * *'   # Runs daily at 2:00 AM UTC
+  workflow_dispatch:       # Allows manual trigger from GitHub UI
 
 jobs:
   run-threat-pipeline:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+    - name: Checkout Repository
+      uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
 
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libffi-dev
-          pip install -r requirements.txt
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libffi-dev
+        pip install -r requirements.txt
 
-      - name: Run:Ingest Feeds
-        run: python scripts/ingest_feeds.py
+    - name: Run: Ingest Feeds
+      run: python scripts/ingest_feeds.py
 
-      - name: Run:Extract IOCs
-        run: python scripts/extract_iocs.py
+    - name: Run: Extract IOCs
+      run: python scripts/extract_iocs.py
 
-      - name: Run:Classify Threats
-        run: python scripts/classify_threats.py
+    - name: Run: Classify Threats
+      run: python scripts/classify_threats.py
 
-      - name: Run:Generate Report
-        run: python scripts/summarize_report.py
+    - name: Run: Generate Report
+      run: python scripts/summarize_report.py
 
-      - name: Commit & Push Report
-        run: |
-          git config user.name "UnnatiBot"
-          git config user.email "unnati@example.com"
-          mkdir -p reports
-          cp report.md reports/report-$(date +%Y-%m-%d).md
-          git add reports/
-          git commit -m "Add daily threat report"
-          git push
-
+    - name: Commit & Push Report
+      run: |
+        git config --global user.name "UnnatiBot"
+        git config --global user.email "unnatibot@example.com"
+        mkdir -p reports
+        cp report.md reports/report_$(date +'%Y-%m-%d').md
+        git add reports/
+        git commit -m "🗒️ Add Threat Report - $(date +'%Y-%m-%d')" || echo "No changes to commit"
+        git push
