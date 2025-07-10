@@ -1,65 +1,56 @@
 import sqlite3
 import re
 
-# === Connect to the database ===
-conn = sqlite3.connect('threat_intel.db')
+# Connect to the SQLite database
+conn = sqlite3.connect("threat_intel.db")
 cursor = conn.cursor()
 
-# === Create classified_threats table if not exists ===
+# Create the table if it doesn't exist
 cursor.execute('''
-    CREATE TABLE IF NOT EXISTS classified_threats (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        threat_type TEXT,
-        description TEXT,
-        cve TEXT,
-        mitre_id TEXT
-    )
+CREATE TABLE IF NOT EXISTS classified_threats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    threat_type TEXT,
+    description TEXT,
+    cve TEXT,
+    mitre_id TEXT
+)
 ''')
+conn.commit()
 
-# === Helper Functions ===
-
-def classify_threat(description):
-    if 'CVE' in description:
-        return 'Vulnerability'
-    elif re.search(r'\b(?:192\.168|10\.)\.\d+\.\d+\b', description):
-        return 'Internal IP'
-    elif 'ransom' in description.lower():
-        return 'Ransomware'
-    elif 'phish' in description.lower():
-        return 'Phishing'
-    elif 'exploit' in description.lower():
-        return 'Exploit'
-    else:
-        return 'Generic Threat'
-
-def map_to_mitre(threat_type):
-    mapping = {
-        'Vulnerability': 'T1203: Exploitation for Client Execution',
-        'Ransomware': 'T1486: Data Encrypted for Impact',
-        'Phishing': 'T1566: Phishing',
-        'Exploit': 'T1068: Exploitation for Privilege Escalation',
-        'Internal IP': 'T1071: Application Layer Protocol',
-        'Generic Threat': 'T1082: System Information Discovery'
-    }
-    return mapping.get(threat_type, 'T1082: System Information Discovery')
-
-# === Fetch all extracted IOCs ===
+# Fetch IOCs from extracted_iocs
 cursor.execute('SELECT id, ioc_type, ioc_value, description, cve FROM extracted_iocs')
-rows = cursor.fetchall()
+ioc_rows = cursor.fetchall()
 
-# === Process each and insert into classified_threats ===
-for row in rows:
-    _id, ioc_type, ioc_value, description, cve = row
-    threat_type = classify_threat(description)
-    mitre = map_to_mitre(threat_type)
+# Simple logic to classify based on IOC type or value
+for row in ioc_rows:
+    ioc_id, ioc_type, ioc_value, description, cve = row
 
+    # Default classifications
+    threat_type = "Unknown"
+    mitre_id = "TBD"  # Placeholder — replace with mapping if needed
+
+    if "phish" in description.lower() or "phishing" in ioc_value.lower():
+        threat_type = "Phishing"
+        mitre_id = "T1566.001"
+
+    elif ioc_type == "ip" and ioc_value.startswith("192."):
+        threat_type = "Internal Network"
+        mitre_id = "T1071"
+
+    elif "ransom" in description.lower():
+        threat_type = "Ransomware"
+        mitre_id = "T1486"
+
+    elif ioc_type == "domain" and "login" in ioc_value:
+        threat_type = "Credential Harvesting"
+        mitre_id = "T1555"
+
+    # Insert into the classified threats table
     cursor.execute('''
         INSERT INTO classified_threats (threat_type, description, cve, mitre_id)
         VALUES (?, ?, ?, ?)
     ''', (threat_type, description, cve, mitre_id))
 
-# === Finalize ===
 conn.commit()
 conn.close()
-
-print(f"[✔] Classified {len(rows)} threats successfully into 'classified_threats' table.")
+print("[✓] Threat classification complete and saved.")
