@@ -1,71 +1,87 @@
-# scripts/summarize_report.py
-
 import sqlite3
-from datetime import datetime
-import smtplib
 import os
-from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import smtplib
 
-DB_FILE = "threat_intel.db"
-REPORT_FILE = "report.md"
+DB_PATH = "threat_intel.db"
+REPORT_PATH = "report.md"
 
 def generate_report():
-    conn = sqlite3.connect(DB_FILE)
+    if not os.path.exists(DB_PATH):
+        print(f"[!] Database not found at {DB_PATH}")
+        return
+
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    report_lines = ["# 🛡️ Daily Threat Intelligence Summary\n"]
-    report_lines.append(f"_Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}_\n")
+    report_lines = ["# 📊 Daily Threat Intelligence Report\n"]
 
-    # Threat Type Summary
-    cursor.execute("SELECT threat_type, COUNT(*) FROM classified_threats GROUP BY threat_type")
-    threats = cursor.fetchall()
-    report_lines.append("## 🔥 Threat Types Summary")
-    for ttype, count in threats:
-        report_lines.append(f"- **{ttype}**: {count} instances")
+    try:
+        # 1. Threat Type Summary
+        cursor.execute("SELECT threat_type, COUNT(*) FROM classified_threats GROUP BY threat_type")
+        threat_summary = cursor.fetchall()
+        report_lines.append("## 🛡️ Threat Type Summary\n")
+        for row in threat_summary:
+            report_lines.append(f"- **{row[0]}**: {row[1]} occurrences")
 
-    # CVE Summary
-    cursor.execute("SELECT cve, COUNT(*) FROM classified_threats WHERE cve IS NOT NULL GROUP BY cve")
-    cves = cursor.fetchall()
-    report_lines.append("\n## 🧩 Top CVEs")
-    for cve, count in cves:
-        report_lines.append(f"- `{cve}`: {count} detections")
+        # 2. Top MITRE Techniques (Optional)
+        try:
+            cursor.execute("SELECT mitre_id, COUNT(*) FROM classified_threats WHERE mitre_id IS NOT NULL GROUP BY mitre_id")
+            mitre_summary = cursor.fetchall()
+            report_lines.append("\n## 🧠 Top MITRE Techniques\n")
+            for row in mitre_summary:
+                report_lines.append(f"- {row[0]}: {row[1]} events")
+        except sqlite3.OperationalError:
+            report_lines.append("\nℹ️ Note: No MITRE ID column found in the table.")
 
-    # MITRE Summary
-    cursor.execute("SELECT mitre_id, COUNT(*) FROM classified_threats WHERE mitre_id IS NOT NULL GROUP BY mitre_id")
-    mitres = cursor.fetchall()
-    report_lines.append("\n## 🎯 Top MITRE Techniques")
-    for mitre, count in mitres:
-        report_lines.append(f"- `{mitre}`: {count} indicators")
+        # 3. Recent CVEs
+        cursor.execute("SELECT cve, COUNT(*) FROM classified_threats WHERE cve IS NOT NULL GROUP BY cve ORDER BY COUNT(*) DESC LIMIT 5")
+        cve_summary = cursor.fetchall()
+        report_lines.append("\n## 🚨 Emerging CVEs\n")
+        for row in cve_summary:
+            report_lines.append(f"- {row[0]}: {row[1]} sightings")
 
-    with open(REPORT_FILE, "w") as f:
+    except sqlite3.OperationalError as e:
+        print(f"[!] SQLite Error: {e}")
+        conn.close()
+        return
+
+    conn.close()
+
+    # Save to Markdown file
+    with open(REPORT_PATH, "w") as f:
         f.write("\n".join(report_lines))
+    print(f"[✓] Report generated as {REPORT_PATH}")
 
-    print("✅ Report generated as report.md")
+    send_email()
 
 def send_email():
-    sender_email = os.environ["EMAIL_USER"]
-    password = os.environ["EMAIL_PASS"]
-    recipient_email = os.environ["EMAIL_TO"]
+    sender_email = os.environ['EMAIL_USER']
+    password = os.environ['EMAIL_PASS']
+    receiver_email = os.environ['EMAIL_TO']
 
-    subject = "📩 Daily Threat Intelligence Report"
-    with open(REPORT_FILE, "r") as f:
-        body = f.read()
+    with open(REPORT_PATH, "r") as file:
+        report_content = file.read()
 
     msg = MIMEMultipart()
-    msg["From"] = sender_email
-    msg["To"] = recipient_email
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain"))
+    msg['From'] = sender_email
+    msg['To'] = receiver_email
+    msg['Subject'] = "📢 Daily Threat Intel Summary"
 
-    server = smtplib.SMTP("smtp.gmail.com", 587)
-    server.starttls()
-    server.login(sender_email, password)
-    server.send_message(msg)
-    server.quit()
+    msg.attach(MIMEText(report_content, "plain"))
 
-    print("✅ Email sent to", recipient_email)
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(sender_email, password)
+        server.sendmail(sender_email, receiver_email, msg.as_string())
+        server.quit()
+        print("[✓] Email sent successfully.")
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"[✗] SMTP Authentication Error: {e}")
+    except Exception as e:
+        print(f"[✗] Failed to send email: {e}")
 
-# MAIN
-generate_report()
-send_email()
+if __name__ == "__main__":
+    generate_report()
