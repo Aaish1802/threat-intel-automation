@@ -73,7 +73,7 @@ def send_email():
     logging.info("Preparing to send email...")
     sender_email = os.environ['EMAIL_USER']
     sender_pass = os.environ['EMAIL_PASS']
-    recipient = "recipient@example.com"  # Change to desired recipient
+    recipient = "aayushisawant19@gnu.ac.in"  # Change to desired recipient
 
     msg = EmailMessage()
     msg['Subject'] = "🔐 Weekly Threat Intelligence Report"
