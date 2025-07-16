@@ -34,7 +34,7 @@ jobs:
         python scripts/report.py
 
     - name: 📤 Upload Report Files
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: threat-report-files
         path: |
