@@ -54,7 +54,13 @@ def generate_report():
         f.write("\n".join(report_lines))
     print(f"[✓] Report generated as {REPORT_PATH}")
 
+    import os
+
+if os.getenv("EMAIL_USER"):
     send_email()
+else:
+    print("[!] Skipping email delivery – EMAIL_USER not set.")
+
 
 def send_email():
     sender_email = os.environ['EMAIL_USER']
