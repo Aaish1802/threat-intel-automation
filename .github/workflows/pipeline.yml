@@ -33,10 +33,13 @@ jobs:
         python scripts/summarize_report.py
         python scripts/report.py
 
+    - name: 🧪 List all files
+        run:ls -R
+        
     - name: 📤 Upload Report Files
       uses: actions/upload-artifact@v4
       with:
         name: threat-report-files
         path: |
-          scripts/weekly_report.md
-          scripts/report.pdf
+          weekly_report.md
+          report.pdf
