@@ -26,3 +26,5 @@ jobs:
         python scripts/extract_iocs.py
         python scripts/classify_threats.py
         python scripts/summarize_report.py
+        python scripts/report.py
+
