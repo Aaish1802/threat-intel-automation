@@ -1,45 +1,41 @@
-name: Automated Threat Intelligence Pipeline
+import streamlit as st
+import sqlite3
+import pandas as pd
+import plotly.express as px
+import os
 
-on:
-  schedule:
-    - cron: '0 5 * * *'  # Runs daily at 5AM UTC
-  workflow_dispatch:     # Allow manual trigger from GitHub UI
+st.set_page_config(page_title="Threat Intelligence Dashboard", layout="wide")
 
-jobs:
-  run-pipeline:
-    runs-on: ubuntu-latest
+# Debug: list files to confirm the database is available
+st.write("📂 Files in current directory:", os.listdir())
 
-    env:
-      EMAIL_USER: ${{ secrets.EMAIL_USER }}
-      EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+st.title("📊 Threat Intelligence Dashboard")
 
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v3
+try:
+    # Connect to the SQLite database
+    conn = sqlite3.connect("threat_feeds.db")
+    cursor = conn.cursor()
 
-    - name: 🐍 Set up Python 3.10
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
+    # Execute SQL query
+    query = "SELECT * FROM Classified_threats"
+    cursor.execute(query)
+    data = cursor.fetchall()
 
-    - name: 📦 Install Python dependencies
-      run: pip install -r requirements.txt
+    # Get column names
+    columns = [description[0] for description in cursor.description]
 
-    - name: 🚀 Run Threat Intelligence Scripts
-      run: |
-        python scripts/ingest_feeds.py
-        python scripts/extract_iocs.py
-        python scripts/classify_threats.py
-        python scripts/summarize_report.py
-        python scripts/report.py
+    # Convert to DataFrame
+    df = pd.DataFrame(data, columns=columns)
 
-    - name: 🧪 List all files
-      run: ls -R
-        
-    - name: 📤 Upload Report Files
-      uses: actions/upload-artifact@v4
-      with:
-        name: threat-report-files
-        path: |
-          weekly_report.md
-          report.pdf
+    # Display data table
+    st.dataframe(df)
+
+    # Optional: Display chart
+    if 'threat_type' in df.columns:
+        fig = px.histogram(df, x='threat_type', title='Threat Distribution by Type')
+        st.plotly_chart(fig)
+    else:
+        st.warning("⚠️ 'threat_type' column not found. Chart not generated.")
+
+except Exception as e:
+    st.error(f"❌ Error loading data: {e}")
